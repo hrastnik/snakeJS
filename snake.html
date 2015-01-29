@@ -1,0 +1,320 @@
+<html>
+	<head>
+		<script src="./jxs.js"></script>
+		<script>
+// Settings
+const SNAKE_BLOCK_SIZE 	= 18;	// Size of one part of snake (should be <= SQUARE_SIZE)
+const SQUARE_SIZE 		= 20;	// X has 800/20=40 positions ; discretisation of x and y
+
+// Other constants
+const SQUARE_HALF		= Math.floor(SQUARE_SIZE/2);
+const UP 				= 0;	// To get reversed direction (dir+2) % 4
+const RIGHT 			= 1;
+const DOWN 				= 2;
+const LEFT 				= 3;
+const KEYCODE_UP 		= 38;	//useful keycode
+const KEYCODE_LEFT 		= 37;	//useful keycode
+const KEYCODE_RIGHT 	= 39;	//useful keycode
+const KEYCODE_DOWN 		= 40;	//useful keycode
+const KEYCODE_U 		= 85;	//useful keycode
+const KEYCODE_ENTER		= 13;	//useful keycode
+const KEYCODE_PLUS		= 43;	//useful keycode
+const KEYCODE_MINUS		= 45;	//useful keycode
+
+function snakeInit() {
+	snake_canvas = document.getElementById("snakeCanvas");
+	ctx = snake_canvas.getContext("2d");
+
+	snake_pos = {
+		x: SQUARE_SIZE*20 + SQUARE_HALF,
+		y: SQUARE_SIZE*15 + SQUARE_HALF
+	}; // Starting X and Y
+	
+	snake_body = [DOWN, DOWN, DOWN, DOWN, DOWN, DOWN]; // Inital snake array
+	snake_head = 0;
+	snake_direction = UP;
+	snake_start = false;
+	
+	dead = false;
+	score = 0;
+	snake_move_lock = false;	// Makes sure there's only one direction change per scene
+	
+	generateFood(); // Spawns food at random pos
+	drawScene(); // Draw scene
+	
+	if (typeof(interval) == "undefined") interval = 200; // Set initial game speed
+
+	if (typeof(game_timer) != "undefined") clearInterval(game_timer);
+	game_timer = setInterval(snakeLogic, interval);
+
+	document.addEventListener("keydown", handleKeys, false); // Add keyboard controls
+	document.addEventListener("keypress", speedKeys, false); // Add keyboard controls
+}
+
+function clearScene() {
+	ctx.clearRect(0, 0, snake_canvas.width, snake_canvas.height);
+}
+
+function drawSquare(size, x, y) {
+	var half_s = Math.floor(size/2);
+	ctx.fillRect(x-half_s, y-half_s, size, size);
+}
+
+function drawFood() {
+	var food_r = Math.floor(SNAKE_BLOCK_SIZE/2);
+	ctx.beginPath();
+	ctx.arc(food.x, food.y, food_r, 0, 2*Math.PI);
+	ctx.closePath();
+	ctx.fill();
+}
+
+function drawScore() {
+	var tmp_style = ctx.fillStyle;
+	ctx.font = "18px arial, sans-serif";
+	ctx.fillStyle = "#0000FF";
+	ctx.fillText("Score: "+score, 10, snake_canvas.height - 10);
+	ctx.fillStyle = tmp_style;
+}
+
+function drawSnake() {
+	var curr = { 
+		x:snake_pos.x,
+		y:snake_pos.y
+	};
+	var tmp_style = ctx.fillStyle; // Save style
+	ctx.fillStyle="#ff0000";
+	drawSquare(SNAKE_BLOCK_SIZE, curr.x, curr.y);	// Draw head
+	ctx.fillStyle=tmp_style; // Restore style
+	for (var i = 0;i < snake_body.length;i++) {
+		switch (snake_body[(snake_head+i) % snake_body.length]) {
+			case UP:
+				curr.y -= SQUARE_SIZE;
+				break;
+			case RIGHT:
+				curr.x += SQUARE_SIZE;
+				break;
+			case DOWN:
+				curr.y += SQUARE_SIZE;
+				break;
+			case LEFT:
+				curr.x -= SQUARE_SIZE;
+				break;
+		}
+		curr.x = (curr.x+snake_canvas.width) % snake_canvas.width; // Enables wall-pass
+		curr.y = (curr.y+snake_canvas.height) % snake_canvas.height;
+
+		drawSquare(SNAKE_BLOCK_SIZE, curr.x, curr.y);
+		
+		if (curr.x == snake_pos.x && curr.y == snake_pos.y) { // Test if bit bit itself
+			dead = true;
+		}
+	}
+}
+
+function moveSnake(direction) {
+	snake_move_lock = false;
+	switch (direction) {
+		case UP:
+			snake_pos.y -= SQUARE_SIZE;
+			break;
+		case RIGHT:
+			snake_pos.x += SQUARE_SIZE;
+			break;
+		case DOWN:
+			snake_pos.y += SQUARE_SIZE;
+			break;
+		case LEFT:
+			snake_pos.x -= SQUARE_SIZE;
+			break;
+	}
+	
+	snake_pos.x = (snake_pos.x+snake_canvas.width) % snake_canvas.width; // Enables wall-pass
+	snake_pos.y = (snake_pos.y+snake_canvas.height) % snake_canvas.height;
+
+	if (snakeAteFood()) { // Insert another piece
+		score++;
+		generateFood();
+		snake_body.splice(snake_head, 0, (snake_direction+2)%4);
+	}
+	else {
+		snake_head = (snake_head - 1 + snake_body.length) % snake_body.length; // Put tail in front
+	}
+	snake_body[snake_head] = (direction+2) % 4; // (direction+2)%4 gives reversed direction;	
+}
+
+function generateFood() {
+	var max_x = Math.floor(snake_canvas.width/SQUARE_SIZE);	
+	var max_y = Math.floor(snake_canvas.height/SQUARE_SIZE);
+	// Randomize x and y
+	food = {
+		x: Math.floor(Math.random() * max_x) * SQUARE_SIZE + SQUARE_HALF,
+		y: Math.floor(Math.random() * max_y) * SQUARE_SIZE + SQUARE_HALF
+	};
+
+	// If food on snake move food to right until not on snake
+	curr = {
+		x: snake_pos.x,
+		y: snake_pos.y
+	};
+	for (var i = 0;i < snake_body.length;i++) {
+		if (curr.x == food.x && curr.y == food.y) {
+			food.x = (food.x + SQUARE_SIZE);
+			if (food.x > snake_canvas.width) { // Go to next line
+				food.y = (food.y + SQUARE_SIZE) % snake_canvas.height;
+			}
+			food.x = food.x % snake_canvas.width;
+			
+			i = -1; // Restart check
+			curr.x = snake_pos.x;
+			curr.y = snake_pos.y;
+			continue;
+		}
+		
+		switch (snake_body[(snake_head+i) % snake_body.length ]) {
+			case UP:
+				curr.y -= SQUARE_SIZE;
+				break;
+			case RIGHT:
+				curr.x += SQUARE_SIZE;
+				break;
+			case DOWN:
+				curr.y += SQUARE_SIZE;
+				break;
+			case LEFT:
+				curr.x -= SQUARE_SIZE;
+				break;
+		}
+	}
+}
+
+function snakeAteFood() {
+	if (food.x == snake_pos.x && food.y == snake_pos.y) return true;
+	return false;
+}
+
+function drawScene() {
+	clearScene();
+	drawFood();
+	drawSnake();
+	drawScore();
+}
+
+function drawBigText(string) {
+	var tmp_txt_align = ctx.textAlign;
+	var tmp_txt_base = ctx.textBaseline;
+	var tmp_txt_font = ctx.font;
+
+	ctx.textAlign = "center";
+	ctx.textBaseline = "middle";
+	ctx.font = "32px arial, sans-serif";
+
+	var multi_line = string.split("\n");
+	for (var i = 0;i < multi_line.length;i++) {
+		ctx.fillText(
+			multi_line[i], 
+			Math.floor(snake_canvas.width/2), 
+			Math.floor(snake_canvas.height/2) - 16*multi_line.length + 32*i
+		);
+	}
+	
+	ctx.textAlign = tmp_txt_align;
+	ctx.textBaseline = tmp_txt_base;
+	ctx.font = tmp_txt_font;
+}
+
+function showMenu() {
+	clearInterval(game_timer);
+	clearScene();
+	document.removeEventListener("keydown", handleKeys); // Remove keyboard controls for snake
+	drawBigText("Score: "+score+"\n\nPress ENTER - Play Again\n\nPress U - Upload score");
+	document.addEventListener("keydown", restartKey); // Add keyboard controls for restart
+	document.addEventListener("keydown", uploadKey); // Add keyboard controls for upload
+	while (snake_body.length > 0) snake_body.pop(); 
+	delete snake_body;
+}
+
+function snakeLogic() {	
+	if (snake_start) {
+		moveSnake(snake_direction);
+		drawScene();
+		if (dead == true) {
+			showMenu();
+		}
+	}
+}
+
+function handleKeys(event) {
+	if (snake_move_lock) {
+		event.preventDefault()
+		return;
+	}
+	switch(event.keyCode) {
+		case KEYCODE_UP:
+			if (snake_direction != DOWN) snake_direction = UP;
+			break;
+		case KEYCODE_RIGHT:
+			if (snake_direction != LEFT) snake_direction = RIGHT;
+			break;
+		case KEYCODE_DOWN:
+			if (snake_direction != UP) snake_direction = DOWN;
+			break;
+		case KEYCODE_LEFT:
+			if (snake_direction != RIGHT) snake_direction = LEFT;
+			break;
+		default:
+			return;
+	}
+	snake_start = true;
+	snake_move_lock = true;
+	event.preventDefault();
+}
+
+function restartKey(event) {
+	if (event.keyCode == KEYCODE_ENTER) {
+		snakeInit();
+	}
+	document.removeEventListener("keydown", restartKey);
+}
+
+function uploadKey(event) {
+	if (event.keyCode == KEYCODE_U) {
+		clearScene();
+		drawBigText("Uploading..."); // Notify user about uploading
+		document.removeEventListener("keydown", restartKey); // Remove keyboard handlers
+		document.removeEventListener("keydown", uploadKey);
+		
+		doc = document; // Pass document handler to jx.load handler
+		var url = "http://localhost/hello.php?score="+score; // Send score to server
+		jx.load(url, function (data) {
+			clearScene();
+			drawBigText(data+"\n\nPress ENTER to play again");	// Display result to user
+			doc.addEventListener("keydown", restartKey);	// Add keyboard handler
+			delete doc; // Destroy handler
+		}, "text", "POST");
+	}
+}
+
+function speedKeys(event) {
+	switch (event.keyCode) {
+		case KEYCODE_PLUS:
+			interval = (interval < 20) ? interval : Math.round(interval/1.2);
+			break;
+		case KEYCODE_MINUS:
+			interval = (interval > 500) ? interval : Math.round(interval*1.2);
+			break;
+		default:
+			return;
+	}
+	clearInterval(game_timer);
+	game_timer = setInterval(snakeLogic, interval);
+}
+		</script>
+	</head>
+	
+	<body onload="snakeInit()">
+		<div style="margin-left:auto;margin-right:auto;width:800">
+			<canvas id="snakeCanvas" width="800" height="600" style="border:1px solid"></canvas>
+		</div>
+	</body>
+	
+</html>
