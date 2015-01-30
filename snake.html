@@ -3,25 +3,25 @@
 		<script src="./jxs.js"></script>
 		<script>
 // Settings
-const SQUARE_SIZE 		= 20;	// X has 800/20=40 positions ; discretisation of x and y
-const SNAKE_BLOCK_SIZE 	= 18;	// Size of one part of snake (should be <= SQUARE_SIZE)
-const SCORE_COLOR 		= "#0000FF";
-const SNAKE_HEAD_COLOR	= "#FF0000";
+const SQUARE_SIZE			= 20;	// X has 800/20=40 positions ; discretisation of x and y
+const SNAKE_BLOCK_SIZE		= 18;	// Size of one part of snake (should be <= SQUARE_SIZE)
+const SCORE_AND_KEYS_COLOR	= "#0000FF";
+const SNAKE_HEAD_COLOR		= "#FF0000";
 
 // Other constants
-const SQUARE_HALF		= Math.floor(SQUARE_SIZE/2);
-const UP 				= 0;	// To get reversed direction (dir+2) % 4
-const RIGHT 			= 1;
-const DOWN 				= 2;
-const LEFT 				= 3;
-const KEYCODE_UP 		= 38;	//useful keycode
-const KEYCODE_LEFT 		= 37;	//useful keycode
-const KEYCODE_RIGHT 	= 39;	//useful keycode
-const KEYCODE_DOWN 		= 40;	//useful keycode
-const KEYCODE_U 		= 85;	//useful keycode
-const KEYCODE_ENTER		= 13;	//useful keycode
-const KEYCODE_PLUS		= 107;	//useful keycode
-const KEYCODE_MINUS		= 109;	//useful keycode
+const SQUARE_HALF	= Math.floor(SQUARE_SIZE/2);
+const UP			= 0;	// To get reversed direction (dir+2) % 4
+const RIGHT			= 1;
+const DOWN			= 2;
+const LEFT			= 3;
+const KEYCODE_UP	= 38;	//useful keycode
+const KEYCODE_LEFT	= 37;	//useful keycode
+const KEYCODE_RIGHT	= 39;	//useful keycode
+const KEYCODE_DOWN	= 40;	//useful keycode
+const KEYCODE_U		= 85;	//useful keycode
+const KEYCODE_ENTER	= 13;	//useful keycode
+const KEYCODE_PLUS	= 107;	//useful keycode
+const KEYCODE_MINUS	= 109;	//useful keycode
 
 function snakeInit() {
 	snake_canvas = document.getElementById("snakeCanvas");
@@ -41,10 +41,10 @@ function snakeInit() {
 	score = 0;
 	snake_move_lock = false;	// Makes sure there's only one direction change per scene
 	
+	if (typeof(interval) == "undefined") interval = 200; // Set initial game speed
+	
 	generateFood(); // Spawns food at random pos
 	drawScene(); // Draw scene
-	
-	if (typeof(interval) == "undefined") interval = 200; // Set initial game speed
 
 	if (typeof(game_timer) != "undefined") clearInterval(game_timer); // Clear timer if set
 	game_timer = setInterval(snakeLogic, interval); // Reset timer
@@ -72,21 +72,25 @@ function drawFood() {
 
 function drawScore() {
 	var tmp_style = ctx.fillStyle;
+	var tmp_font = ctx.font;
 	ctx.font = "18px arial, sans-serif";
-	ctx.fillStyle = SCORE_COLOR;
+	ctx.fillStyle = SCORE_AND_KEYS_COLOR;
 	ctx.fillText("Score: "+score, 10, snake_canvas.height - 10);
 	ctx.fillStyle = tmp_style;
+	ctx.font = tmp_font;
 }
 
 function drawKeys() {
 	var tmp_style = ctx.fillStyle;
 	var tmp_align = ctx.textAlign;
+	var tmp_font = ctx.font;
 	ctx.font = "18px arial, sans-serif";
-	ctx.fillStyle = SCORE_COLOR;
+	ctx.fillStyle = SCORE_AND_KEYS_COLOR;
 	ctx.textAlign = "right";
 	ctx.fillText("\"+\\-\" - change speed", snake_canvas.width - 10, snake_canvas.height - 10);
 	ctx.fillStyle = tmp_style;
 	ctx.textAlign = tmp_align;
+	ctx.font = tmp_font;
 }
 
 function drawSnake() {
