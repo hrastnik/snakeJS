@@ -3,8 +3,10 @@
 		<script src="./jxs.js"></script>
 		<script>
 // Settings
-const SNAKE_BLOCK_SIZE 	= 18;	// Size of one part of snake (should be <= SQUARE_SIZE)
 const SQUARE_SIZE 		= 20;	// X has 800/20=40 positions ; discretisation of x and y
+const SNAKE_BLOCK_SIZE 	= 18;	// Size of one part of snake (should be <= SQUARE_SIZE)
+const SCORE_COLOR 		= "#0000FF";
+const SNAKE_HEAD_COLOR	= "#FF0000";
 
 // Other constants
 const SQUARE_HALF		= Math.floor(SQUARE_SIZE/2);
@@ -18,8 +20,8 @@ const KEYCODE_RIGHT 	= 39;	//useful keycode
 const KEYCODE_DOWN 		= 40;	//useful keycode
 const KEYCODE_U 		= 85;	//useful keycode
 const KEYCODE_ENTER		= 13;	//useful keycode
-const KEYCODE_PLUS		= 43;	//useful keycode
-const KEYCODE_MINUS		= 45;	//useful keycode
+const KEYCODE_PLUS		= 107;	//useful keycode
+const KEYCODE_MINUS		= 109;	//useful keycode
 
 function snakeInit() {
 	snake_canvas = document.getElementById("snakeCanvas");
@@ -30,7 +32,7 @@ function snakeInit() {
 		y: SQUARE_SIZE*15 + SQUARE_HALF
 	}; // Starting X and Y
 	
-	snake_body = [DOWN, DOWN, DOWN, DOWN, DOWN, DOWN]; // Inital snake array
+	snake_body = [DOWN, DOWN, DOWN]; // Inital snake array
 	snake_head = 0;
 	snake_direction = UP;
 	snake_start = false;
@@ -44,11 +46,11 @@ function snakeInit() {
 	
 	if (typeof(interval) == "undefined") interval = 200; // Set initial game speed
 
-	if (typeof(game_timer) != "undefined") clearInterval(game_timer);
-	game_timer = setInterval(snakeLogic, interval);
+	if (typeof(game_timer) != "undefined") clearInterval(game_timer); // Clear timer if set
+	game_timer = setInterval(snakeLogic, interval); // Reset timer
 
 	document.addEventListener("keydown", handleKeys, false); // Add keyboard controls
-	document.addEventListener("keypress", speedKeys, false); // Add keyboard controls
+	document.addEventListener("keydown", speedKeys, false); // Add keyboard controls
 }
 
 function clearScene() {
@@ -71,9 +73,20 @@ function drawFood() {
 function drawScore() {
 	var tmp_style = ctx.fillStyle;
 	ctx.font = "18px arial, sans-serif";
-	ctx.fillStyle = "#0000FF";
+	ctx.fillStyle = SCORE_COLOR;
 	ctx.fillText("Score: "+score, 10, snake_canvas.height - 10);
 	ctx.fillStyle = tmp_style;
+}
+
+function drawKeys() {
+	var tmp_style = ctx.fillStyle;
+	var tmp_align = ctx.textAlign;
+	ctx.font = "18px arial, sans-serif";
+	ctx.fillStyle = SCORE_COLOR;
+	ctx.textAlign = "right";
+	ctx.fillText("\"+\\-\" - change speed", snake_canvas.width - 10, snake_canvas.height - 10);
+	ctx.fillStyle = tmp_style;
+	ctx.textAlign = tmp_align;
 }
 
 function drawSnake() {
@@ -82,9 +95,9 @@ function drawSnake() {
 		y:snake_pos.y
 	};
 	var tmp_style = ctx.fillStyle; // Save style
-	ctx.fillStyle="#ff0000";
+	ctx.fillStyle = SNAKE_HEAD_COLOR;
 	drawSquare(SNAKE_BLOCK_SIZE, curr.x, curr.y);	// Draw head
-	ctx.fillStyle=tmp_style; // Restore style
+	ctx.fillStyle = tmp_style; // Restore style
 	for (var i = 0;i < snake_body.length;i++) {
 		switch (snake_body[(snake_head+i) % snake_body.length]) {
 			case UP:
@@ -150,9 +163,8 @@ function generateFood() {
 		x: Math.floor(Math.random() * max_x) * SQUARE_SIZE + SQUARE_HALF,
 		y: Math.floor(Math.random() * max_y) * SQUARE_SIZE + SQUARE_HALF
 	};
-
 	// If food on snake move food to right until not on snake
-	curr = {
+	var curr = {
 		x: snake_pos.x,
 		y: snake_pos.y
 	};
@@ -170,7 +182,7 @@ function generateFood() {
 			continue;
 		}
 		
-		switch (snake_body[(snake_head+i) % snake_body.length ]) {
+		switch (snake_body[(snake_head+i) % snake_body.length]) {
 			case UP:
 				curr.y -= SQUARE_SIZE;
 				break;
@@ -184,6 +196,8 @@ function generateFood() {
 				curr.x -= SQUARE_SIZE;
 				break;
 		}
+		curr.x = (curr.x + snake_canvas.width) % snake_canvas.width;
+		curr.y = (curr.y + snake_canvas.height) % snake_canvas.height;
 	}
 }
 
@@ -197,6 +211,7 @@ function drawScene() {
 	drawFood();
 	drawSnake();
 	drawScore();
+	drawKeys();
 }
 
 function drawBigText(string) {
@@ -272,8 +287,8 @@ function handleKeys(event) {
 function restartKey(event) {
 	if (event.keyCode == KEYCODE_ENTER) {
 		snakeInit();
+		document.removeEventListener("keydown", restartKey);
 	}
-	document.removeEventListener("keydown", restartKey);
 }
 
 function uploadKey(event) {
@@ -284,7 +299,9 @@ function uploadKey(event) {
 		document.removeEventListener("keydown", uploadKey);
 		
 		doc = document; // Pass document handler to jx.load handler
-		var url = "http://localhost/hello.php?score="+score; // Send score to server
+		var url = "../storeScore.php?score="+score; // Send score to server
+		gameId = document.location.toString().split("game_id=")[1];
+		url = url + "&game_id=" + gameId;
 		jx.load(url, function (data) {
 			clearScene();
 			drawBigText(data+"\n\nPress ENTER to play again");	// Display result to user
@@ -297,10 +314,12 @@ function uploadKey(event) {
 function speedKeys(event) {
 	switch (event.keyCode) {
 		case KEYCODE_PLUS:
-			interval = (interval < 20) ? interval : Math.round(interval/1.2);
+			if (interval < 20) return;
+			interval = Math.round(interval/1.2);						
 			break;
 		case KEYCODE_MINUS:
-			interval = (interval > 500) ? interval : Math.round(interval*1.2);
+			if (interval > 500) return;
+			interval = Math.round(interval*1.2);
 			break;
 		default:
 			return;
@@ -313,7 +332,7 @@ function speedKeys(event) {
 	
 	<body onload="snakeInit()">
 		<div style="margin-left:auto;margin-right:auto;width:800">
-			<canvas id="snakeCanvas" width="800" height="600" style="border:1px solid"></canvas>
+			<canvas id="snakeCanvas" width="800" height="600" style="border:1px solid; background-color: gray"></canvas>
 		</div>
 	</body>
 	
